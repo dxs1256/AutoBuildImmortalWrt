@@ -62,7 +62,6 @@ PACKAGES="$PACKAGES luci-i18n-firewall-zh-cn"
 
 # 2. 界面与主题
 PACKAGES="$PACKAGES luci-theme-argon"
-PACKAGES="$PACKAGES luci-app-argon-config luci-i18n-argon-config-zh-cn"
 
 # 3. 你需要的具体插件 (官方库已验证)
 # 磁盘管理
@@ -77,10 +76,6 @@ PACKAGES="$PACKAGES luci-app-aria2 luci-i18n-aria2-zh-cn"
 PACKAGES="$PACKAGES luci-i18n-openlist-zh-cn"
 # PassWall
 PACKAGES="$PACKAGES luci-i18n-passwall-zh-cn"
-
-# 4. 第三方库插件 (wukongdaily库)
-# 广告屏蔽 (AdGuardHome)
-PACKAGES="$PACKAGES luci-app-adguardhome"
 
 # 5. Docker (可选，保留原逻辑)
 if [ "$INCLUDE_DOCKER" = "yes" ]; then
