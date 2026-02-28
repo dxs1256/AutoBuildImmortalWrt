@@ -17,68 +17,19 @@ on:
           - 24.10.5
       profile:
         type: choice
-        description: |
-          输入 软路由型号 可选值如下：
+        description: "固定机型：friendlyarm_nanopi-r4s"
         options:
-          - linkease_easepi-r1
-          - ariaboard_photonicat
-          - armsom_sige3
-          - armsom_sige7
-          - cyber_cyber3588-aib
-          - ezpro_mrkaio-m68s
-          - firefly_roc-rk3328-cc
-          - firefly_roc-rk3568-pc
-          - friendlyarm_nanopc-t4
-          - friendlyarm_nanopc-t6
-          - friendlyarm_nanopi-r2c
-          - friendlyarm_nanopi-r2c-plus
-          - friendlyarm_nanopi-r2s
-          - friendlyarm_nanopi-r3s
           - friendlyarm_nanopi-r4s
-          - friendlyarm_nanopi-r4se
-          - friendlyarm_nanopi-r4s-enterprise
-          - friendlyarm_nanopi-r5c
-          - friendlyarm_nanopi-r5s
-          - friendlyarm_nanopi-r6c
-          - friendlyarm_nanopi-r6s
-          - huake_guangmiao-g4c
-          - lunzn_fastrhino-r66s
-          - lunzn_fastrhino-r68s
-          - lyt_t68m
-          - pine64_rock64
-          - pine64_rockpro64
-          - radxa_cm3_io
-          - radxa_e25
-          - radxa_rock-3a
-          - radxa_rock-3b
-          - radxa_rock-3c
-          - radxa_rock-5a
-          - radxa_rock-5b
-          - radxa_rock-pi-4a
-          - radxa_rock-pi-e
-          - radxa_rock-pi-s
-          - radxa_zero-3e
-          - radxa_zero-3w
-          - sinovoip_bpi-r2-pro
-          - xunlong_orangepi-5
-          - xunlong_orangepi-5-plus
-          - xunlong_orangepi-r1-plus
-          - xunlong_orangepi-r1-plus-lts
         required: true
-        default: 'friendlyarm_nanopi-r3s'
+        default: 'friendlyarm_nanopi-r4s'
       custom_router_ip:
         description: "请设置软路由的管理地址(注意仅对多网口软路由有效) 格式:192.168.x.1 或 10.x.x.1"
         required: true
-        default: "192.168.100.1"
+        default: "192.168.1.1"
       rootfs_partsize:
         description: '设置软件包大小 单位(MB)'
         required: true
-        default: '1024'
-      enable_store:
-        description: "集成 store 商店"
-        required: false
-        type: boolean
-        default: true
+        default: '3072'
       include_docker:
         description: |
           是否编译 Docker 插件
@@ -91,7 +42,7 @@ on:
       enable_pppoe:
         description: "是否配置PPPoE拨号信息?"
         required: true
-        default: 'no'
+        default: 'yes'
         type: choice
         options:
         - 'yes'
@@ -99,9 +50,11 @@ on:
       pppoe_account:
         description: "宽带账号 (若启用PPPoE)"
         required: false
+        default: "071900263467"
       pppoe_password:
         description: "宽带密码 (若启用PPPoE)"
         required: false
+        default: "123456"
 
 jobs:
   build:
@@ -137,16 +90,6 @@ jobs:
              echo "✅ 已为Rockchip平台补充 docker 组件"
           fi
       
-      - name: Enable Store integration
-        run: |
-          if [ "${{ github.event.inputs.enable_store }}" == "true" ]; then
-            echo 'CUSTOM_PACKAGES="$CUSTOM_PACKAGES luci-app-store"' >> shell/custom-packages.sh
-            echo "✅ 已追加 luci-app-store"
-          else
-            echo "❎ 未启用 luci-app-store"
-          fi
-          
-
       - name: Building Rockchip ImmortalWrt 24.10.x
         run: |
           profile="${{ github.event.inputs.profile }}"
