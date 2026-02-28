@@ -66,7 +66,6 @@ PACKAGES="$PACKAGES luci-i18n-samba4-zh-cn"
 # 合并imm仓库以外的第三方插件
 PACKAGES="$PACKAGES $CUSTOM_PACKAGES"
 
-
 # 按工作流输入开关 docker 相关插件
 if [ "$INCLUDE_DOCKER" = "yes" ]; then
     PACKAGES="$PACKAGES docker luci-app-dockerman luci-i18n-dockerman-zh-cn"

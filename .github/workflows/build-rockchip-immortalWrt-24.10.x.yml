@@ -81,14 +81,24 @@ jobs:
           echo "您设置的Rockchip软路由管理地址是:${{ github.event.inputs.custom_router_ip }}"
           # 后续步骤会将该文件映射到路由器/etc/config/custom_router_ip.txt 以便用于开机脚本99-custom.sh读取用户设置的ip
       
-      - name: Validate PPPoE Inputs
+      - name: Normalize PPPoE Inputs
         run: |
-          if [[ "${{ inputs.enable_pppoe }}" == "yes" ]]; then
-            if [[ -z "${{ inputs.pppoe_account }}" || -z "${{ inputs.pppoe_password }}" ]]; then
-              echo "Error: PPPoE account and password must be provided when PPPoE is enabled!"
-              exit 1
+          effective_enable_pppoe="${{ inputs.enable_pppoe }}"
+          pppoe_account="${{ inputs.pppoe_account }}"
+          pppoe_password="${{ inputs.pppoe_password }}"
+
+          if [[ "$effective_enable_pppoe" == "yes" ]]; then
+            if [[ -z "$pppoe_account" || -z "$pppoe_password" ]]; then
+              echo "⚠️ enable_pppoe=yes 但账号或密码为空，自动回退为不启用 PPPoE，继续构建。"
+              effective_enable_pppoe="no"
+              pppoe_account=""
+              pppoe_password=""
             fi
           fi
+
+          echo "EFFECTIVE_ENABLE_PPPOE=$effective_enable_pppoe" >> "$GITHUB_ENV"
+          echo "EFFECTIVE_PPPOE_ACCOUNT=$pppoe_account" >> "$GITHUB_ENV"
+          echo "EFFECTIVE_PPPOE_PASSWORD=$pppoe_password" >> "$GITHUB_ENV"
       
       - name: Check Optional Components
         run: |
@@ -119,9 +129,9 @@ jobs:
               -e INCLUDE_DOCKER=$include_docker \
               -e INCLUDE_PASSWALL=$include_passwall \
               -e ROOTFS_PARTSIZE=$rootfs_partsize \
-              -e ENABLE_PPPOE=${{ inputs.enable_pppoe }} \
-              -e PPPOE_ACCOUNT=${{ inputs.pppoe_account }} \
-              -e PPPOE_PASSWORD=${{ inputs.pppoe_password }} \
+              -e ENABLE_PPPOE=$EFFECTIVE_ENABLE_PPPOE \
+              -e PPPOE_ACCOUNT=$EFFECTIVE_PPPOE_ACCOUNT \
+              -e PPPOE_PASSWORD=$EFFECTIVE_PPPOE_PASSWORD \
           immortalwrt/imagebuilder:rockchip-armv8-openwrt-${luci_version} /bin/bash /home/build/immortalwrt/build.sh
         
     
