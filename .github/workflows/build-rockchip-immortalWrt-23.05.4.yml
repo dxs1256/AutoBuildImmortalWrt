@@ -5,47 +5,19 @@ on:
     inputs:
       profile:
         type: choice
-        description: |
-          输入 软路由型号 可选值如下：
+        description: "固定机型：friendlyarm_nanopi-r4s"
         required: true
         options:
-          - ariaboard_photonicat
-          - armsom_sige3
-          - ezpro_mrkaio-m68s 
-          - firefly_roc-rk3328-cc 
-          - firefly_roc-rk3568-pc 
-          - friendlyarm_nanopc-t4 
-          - friendlyarm_nanopi-r2c 
-          - friendlyarm_nanopi-r2c-plus 
-          - friendlyarm_nanopi-r2s 
           - friendlyarm_nanopi-r4s 
-          - friendlyarm_nanopi-r4s-enterprise 
-          - friendlyarm_nanopi-r4se 
-          - friendlyarm_nanopi-r5c 
-          - friendlyarm_nanopi-r5s 
-          - huake_guangmiao-g4c 
-          - lunzn_fastrhino-r66s 
-          - lunzn_fastrhino-r68s 
-          - lyt_t68m 
-          - pine64_rockpro64 
-          - radxa_rock-pi-4a 
-          - radxa_rock-pi-e 
-          - xunlong_orangepi-r1-plus 
-          - xunlong_orangepi-r1-plus-lts
         default: 'friendlyarm_nanopi-r4s'
       rootfs_partsize:
         description: '设置软件包大小 单位(MB)'
         required: true
-        default: '1024'
+        default: '3072'
       custom_router_ip:
         description: "请设置软路由的管理地址(注意仅对多网口软路由有效) 格式:192.168.x.1 或 10.x.x.1"
         required: true
         default: "192.168.100.1"
-      enable_store:
-        description: "集成 store 商店"
-        required: false
-        type: boolean
-        default: true
       include_docker:
         description: |
           是否编译 Docker 插件
@@ -97,15 +69,6 @@ jobs:
             fi
           fi
       
-      - name: Enable Store integration
-        run: |
-          if [ "${{ github.event.inputs.enable_store }}" == "true" ]; then
-            echo 'CUSTOM_PACKAGES="$CUSTOM_PACKAGES luci-app-store"' >> shell/custom-packages.sh
-            echo "✅ 已追加 luci-app-store"
-          else
-            echo "❎ 未启用 luci-app-store"
-          fi
-
       - name: Building Rockchip ImmortalWrt
         run: |
           profiles="${{ github.event.inputs.profile }}"
