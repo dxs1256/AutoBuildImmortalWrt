@@ -124,7 +124,8 @@ fi
 echo "$(date '+%Y-%m-%d %H:%M:%S') - 最终打包的软件包列表如下:"
 echo "$PACKAGES"
 
-make image PROFILE=$PROFILE PACKAGES="$PACKAGES" FILES="/home/build/immortalwrt/files" ROOTFS_PARTSIZE=$ROOTFS_PARTSIZE
+# ⚡️ 优化：加入 -j$(nproc) 启用多线程并行打包，大幅提升速度
+make image PROFILE=$PROFILE PACKAGES="$PACKAGES" FILES="/home/build/immortalwrt/files" ROOTFS_PARTSIZE=$ROOTFS_PARTSIZE -j$(nproc)
 
 # 检查构建是否成功
 if [ $? -ne 0 ]; then
