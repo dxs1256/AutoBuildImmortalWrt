@@ -1,136 +1,98 @@
 #!/bin/bash
 # Log file for debugging
 
-# 引入外部脚本 (确保你的仓库里有这几个文件)
+# 引入外部脚本
 source shell/custom-packages.sh
 source shell/switch_repository.sh
 
-# 保留 shell/custom-packages.sh 中的预设，并与基础插件合并
+# 合并第三方插件
 CUSTOM_PACKAGES="$BASE_CUSTOM_PACKAGES $CUSTOM_PACKAGES"
 echo "第三方软件包: $CUSTOM_PACKAGES"
 LOGFILE="/tmp/uci-defaults-log.txt"
 echo "Starting build.sh at $(date)" >> $LOGFILE
-
-# yml 传入的路由器型号 PROFILE
-echo "Building for profile: $PROFILE"
-# yml 传入的固件大小 ROOTFS_PARTSIZE
-echo "Building for ROOTFS_PARTSIZE: $ROOTFS_PARTSIZE"
 
 # ==========================================
 # 1. 动态生成 PPPoE 配置文件
 # ==========================================
 echo "Create pppoe-settings"
 mkdir -p /home/build/immortalwrt/files/etc/config
-
-# 创建pppoe配置文件 yml传入环境变量ENABLE_PPPOE等 写入配置文件 供开机脚本读取
 cat << EOF > /home/build/immortalwrt/files/etc/config/pppoe-settings
 enable_pppoe=${ENABLE_PPPOE}
 pppoe_account=${PPPOE_ACCOUNT}
 pppoe_password=${PPPOE_PASSWORD}
 EOF
 
-echo "查看生成的 PPPoE 配置文件内容:"
-cat /home/build/immortalwrt/files/etc/config/pppoe-settings
-
 # ==========================================
-# 2. 处理第三方 Run 包软件仓库
+# 2. 处理第三方 Run 包软件仓库 (配合 Github Cache)
 # ==========================================
 if [ -z "$CUSTOM_PACKAGES" ]; then
   echo "⚪️ 未选择任何第三方软件包"
 else
-  # 下载 run 文件仓库
-  echo "🔄 正在同步第三方软件仓库 Cloning run file repo..."
-  git clone --depth=1 https://github.com/wukongdaily/store.git /tmp/store-run-repo
+  if [ -d "/tmp/store-run-repo/.git" ]; then
+      echo "⚡️ 使用缓存的软件仓库"
+      cd /tmp/store-run-repo && git pull && cd -
+  else
+      echo "🔄 同步第三方软件仓库..."
+      git clone --depth=1 https://github.com/wukongdaily/store.git /tmp/store-run-repo
+  fi
 
-  # 拷贝 run/arm64 下所有 run 文件和ipk文件 到 extra-packages 目录
   mkdir -p /home/build/immortalwrt/extra-packages
   cp -r /tmp/store-run-repo/run/arm64/* /home/build/immortalwrt/extra-packages/
-
-  echo "✅ Run files copied to extra-packages:"
-  ls -lh /home/build/immortalwrt/extra-packages/*.run
   
-  # 解压并拷贝ipk到packages目录
+  # 执行解压和整理
   sh shell/prepare-packages.sh
-  ls -lah /home/build/immortalwrt/packages/
   
-  # 添加架构优先级信息
-  sed -i '1i\
-  arch aarch64_generic 10\n\
-  arch aarch64_cortex-a53 15' repositories.conf
+  # ⚠️ 注意：此处删除了之前导致错误的 sed 注入 arch 架构的代码
+  # ImageBuilder 24.10 已经内置了正确的架构，无需手动干预
 fi
 
-echo "$(date '+%Y-%m-%d %H:%M:%S') - 开始构建固件..."
-echo "查看 repositories.conf 信息:"
-cat repositories.conf
-
 # ==========================================
-# 3. 定义必须安装的基础包列表 (已全盘汉化)
+# 3. 定义安装包列表
 # ==========================================
 PACKAGES=""
 
-# 基础系统与工具
-PACKAGES="$PACKAGES curl"
-PACKAGES="$PACKAGES openssh-sftp-server"
-PACKAGES="$PACKAGES luci-i18n-firewall-zh-cn"
+# --- 核心排除项 (解决编译失败的关键) ---
+PACKAGES="$PACKAGES -dnsmasq"           # 强制删除标准版，防止与 dnsmasq-full 冲突
+PACKAGES="$PACKAGES -luci-app-cpufreq"  # 显式排除
+PACKAGES="$PACKAGES dnsmasq-full"       # 确保安装全功能版
 
-# 磁盘与存储/NAS
-PACKAGES="$PACKAGES luci-i18n-diskman-zh-cn"
-PACKAGES="$PACKAGES luci-i18n-samba4-zh-cn"
-PACKAGES="$PACKAGES luci-i18n-aria2-zh-cn"
+# --- 基础工具 ---
+PACKAGES="$PACKAGES curl openssh-sftp-server luci-i18n-firewall-zh-cn"
 
-# 网络加速与其他工具
-PACKAGES="$PACKAGES luci-i18n-turboacc-zh-cn"
-PACKAGES="$PACKAGES luci-app-openlist"
+# --- 存储与 NAS ---
+PACKAGES="$PACKAGES luci-i18n-diskman-zh-cn luci-i18n-samba4-zh-cn luci-i18n-aria2-zh-cn"
 
-# 广告过滤与安全控制
+# --- 网络与插件 ---
+PACKAGES="$PACKAGES luci-i18n-turboacc-zh-cn luci-app-openlist luci-app-pushbot luci-i18n-accesscontrol-zh-cn"
 PACKAGES="$PACKAGES luci-i18n-adguardhome-zh-cn"
-PACKAGES="$PACKAGES luci-i18n-accesscontrol-zh-cn"
 
-# 通知与推送
-PACKAGES="$PACKAGES luci-app-pushbot"
-
-# 主题
+# --- 主题 ---
 PACKAGES="$PACKAGES luci-theme-argon"
 
-# 显式排除不需要的包 (如果默认内核带了这个，排除防止冲突)
-PACKAGES="$PACKAGES -luci-app-cpufreq"
-
-# 合并外部预设的第三方插件
+# 合并外部第三方插件
 PACKAGES="$PACKAGES $CUSTOM_PACKAGES"
 
-# ==========================================
-# 4. 根据 YAML 用户输入判断是否打包特色插件
-# ==========================================
-
-# 1) Docker 逻辑判断
+# --- 功能开关判断 ---
 if [ "$INCLUDE_DOCKER" = "yes" ]; then
+    # 只需安装 i18n 包，它会自动依赖安装 docker 主程序
     PACKAGES="$PACKAGES luci-app-docker luci-i18n-dockerman-zh-cn"
-    echo "✅ include_docker=yes，已将 Docker 相关组件加入打包列表"
-else
-    echo "ℹ️ include_docker=no，跳过 Docker 相关组件"
 fi
 
-# 2) Passwall 逻辑判断
 if [ "$INCLUDE_PASSWALL" = "yes" ]; then
     PACKAGES="$PACKAGES luci-app-passwall"
-    echo "✅ include_passwall=yes，已将 Passwall 加入打包列表"
-else
-    echo "ℹ️ include_passwall=no，跳过 Passwall 组件"
 fi
 
 # ==========================================
-# 5. 执行构建命令 (ImageBuilder)
+# 4. 执行构建 (开启多线程优化)
 # ==========================================
-echo "$(date '+%Y-%m-%d %H:%M:%S') - 最终打包的软件包列表如下:"
-echo "$PACKAGES"
+echo "🚀 开始构建固件，并发线程数: $(nproc)"
 
-# ⚡️ 优化：加入 -j$(nproc) 启用多线程并行打包，大幅提升速度
+# 使用 -j$(nproc) 跑满 CPU
 make image PROFILE=$PROFILE PACKAGES="$PACKAGES" FILES="/home/build/immortalwrt/files" ROOTFS_PARTSIZE=$ROOTFS_PARTSIZE -j$(nproc)
 
-# 检查构建是否成功
 if [ $? -ne 0 ]; then
-    echo "❌ $(date '+%Y-%m-%d %H:%M:%S') - Error: Build failed!"
+    echo "❌ Build failed!"
     exit 1
 fi
 
-echo "🎉 $(date '+%Y-%m-%d %H:%M:%S') - Build completed successfully."
+echo "🎉 Build completed successfully."
