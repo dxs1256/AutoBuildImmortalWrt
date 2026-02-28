@@ -39,6 +39,15 @@ on:
         options:
           - 'yes'
           - 'no'
+      include_passwall:
+        description: |
+          是否编译 Passwall 插件
+        required: true
+        default: 'no'
+        type: choice
+        options:
+          - 'yes'
+          - 'no'
       enable_pppoe:
         description: "是否配置PPPoE拨号信息?"
         required: true
@@ -72,26 +81,44 @@ jobs:
           echo "您设置的Rockchip软路由管理地址是:${{ github.event.inputs.custom_router_ip }}"
           # 后续步骤会将该文件映射到路由器/etc/config/custom_router_ip.txt 以便用于开机脚本99-custom.sh读取用户设置的ip
       
-      - name: Validate PPPoE Inputs
+      - name: Normalize PPPoE Inputs
         run: |
-          if [[ "${{ inputs.enable_pppoe }}" == "yes" ]]; then
-            if [[ -z "${{ inputs.pppoe_account }}" || -z "${{ inputs.pppoe_password }}" ]]; then
-              echo "Error: PPPoE account and password must be provided when PPPoE is enabled!"
-              exit 1
+          effective_enable_pppoe="${{ inputs.enable_pppoe }}"
+          pppoe_account="${{ inputs.pppoe_account }}"
+          pppoe_password="${{ inputs.pppoe_password }}"
+
+          if [[ "$effective_enable_pppoe" == "yes" ]]; then
+            if [[ -z "$pppoe_account" || -z "$pppoe_password" ]]; then
+              echo "⚠️ enable_pppoe=yes 但账号或密码为空，自动回退为不启用 PPPoE，继续构建。"
+              effective_enable_pppoe="no"
+              pppoe_account=""
+              pppoe_password=""
             fi
           fi
+
+          echo "EFFECTIVE_ENABLE_PPPOE=$effective_enable_pppoe" >> "$GITHUB_ENV"
+          echo "EFFECTIVE_PPPOE_ACCOUNT=$pppoe_account" >> "$GITHUB_ENV"
+          echo "EFFECTIVE_PPPOE_PASSWORD=$pppoe_password" >> "$GITHUB_ENV"
       
-      - name: Check Docker
+      - name: Check Optional Components
         run: |
           if [[ "${{ inputs.include_docker }}" == "yes" ]]; then
-             echo 'CUSTOM_PACKAGES="$CUSTOM_PACKAGES docker"' >> shell/custom-packages.sh
-             echo "✅ 已为Rockchip平台补充 docker 组件"
+             echo "✅ include_docker=yes，将在 build24.sh 中注入 Docker 组件"
+          else
+             echo "ℹ️ include_docker=no，将跳过 Docker 组件"
+          fi
+
+          if [[ "${{ inputs.include_passwall }}" == "yes" ]]; then
+             echo "✅ include_passwall=yes，将在 build24.sh 中注入 Passwall 组件"
+          else
+             echo "ℹ️ include_passwall=no，将跳过 Passwall 组件"
           fi
       
       - name: Building Rockchip ImmortalWrt 24.10.x
         run: |
           profile="${{ github.event.inputs.profile }}"
           include_docker="${{ github.event.inputs.include_docker }}"
+          include_passwall="${{ github.event.inputs.include_passwall }}"
           rootfs_partsize="${{ github.event.inputs.rootfs_partsize }}"
           luci_version="${{ github.event.inputs.luci_version }}"
           echo "Building for profile: $profile"
@@ -106,10 +133,11 @@ jobs:
               -v "${{ github.workspace }}/rockchip/build24.sh:/home/build/immortalwrt/build.sh" \
               -e PROFILE=$profile \
               -e INCLUDE_DOCKER=$include_docker \
+              -e INCLUDE_PASSWALL=$include_passwall \
               -e ROOTFS_PARTSIZE=$rootfs_partsize \
-              -e ENABLE_PPPOE=${{ inputs.enable_pppoe }} \
-              -e PPPOE_ACCOUNT=${{ inputs.pppoe_account }} \
-              -e PPPOE_PASSWORD=${{ inputs.pppoe_password }} \
+              -e ENABLE_PPPOE=$EFFECTIVE_ENABLE_PPPOE \
+              -e PPPOE_ACCOUNT=$EFFECTIVE_PPPOE_ACCOUNT \
+              -e PPPOE_PASSWORD=$EFFECTIVE_PPPOE_PASSWORD \
           immortalwrt/imagebuilder:rockchip-armv8-openwrt-${luci_version} /bin/bash /home/build/immortalwrt/build.sh
         
     
@@ -125,10 +153,15 @@ jobs:
           EOF
 
           if [ "${{ github.event.inputs.include_docker }}" == "yes" ]; then
-            extra_content="#### 默认带docker"
-            echo -e "\n$extra_content" >> ${{ github.workspace }}/router-info.md
+            echo -e "\n#### 默认带docker" >> ${{ github.workspace }}/router-info.md
           else
             echo -e "\n#### 不带docker" >> ${{ github.workspace }}/router-info.md
+          fi
+
+          if [ "${{ github.event.inputs.include_passwall }}" == "yes" ]; then
+            echo -e "\n#### 默认带Passwall" >> ${{ github.workspace }}/router-info.md
+          else
+            echo -e "\n#### 不带Passwall" >> ${{ github.workspace }}/router-info.md
           fi
 
       - name: Upload ImmortWrt as release assets
