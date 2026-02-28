@@ -1,4 +1,4 @@
-name: Build-Rockchip-Nanopi-R4S
+name: Build Rockchip Nanopi R4S
 
 on:
   workflow_dispatch:
