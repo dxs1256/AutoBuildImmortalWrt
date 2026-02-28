@@ -47,19 +47,6 @@ else
 fi
 
 # ==========================================
-# 3. 配置 feeds
-# ==========================================
-echo "🔄 配置 feeds..."
-# 创建 feeds 配置
-cat > feeds.conf << 'EOF'
-src-git packages https://github.com/immortalwrt/packages.git
-src-git luci https://github.com/immortalwrt/luci.git
-src-git routing https://github.com/openwrt/routing.git
-src-git telephony https://github.com/openwrt/telephony.git
-src-link custom /home/build/immortalwrt/packages
-EOF
-
-# ==========================================
 # 4. 定义安装包列表（已删除 custom-packages.sh 中已包含的插件）
 # ==========================================
 PACKAGES=""
@@ -71,16 +58,6 @@ PACKAGES="$PACKAGES dnsmasq-full"       # 确保安装全功能版
 
 # --- 基础工具 ---
 PACKAGES="$PACKAGES curl openssh-sftp-server luci-i18n-firewall-zh-cn"
-
-# --- 存储与 NAS ---
-# 已删除 custom-packages.sh 中已包含的插件：
-# luci-i18n-diskman-zh-cn, luci-i18n-samba4-zh-cn, luci-i18n-aria2-zh-cn
-
-# --- 网络与插件 ---
-# 已删除 custom-packages.sh 中已包含的插件：
-# luci-app-adguardhome, luci-app-turboacc, luci-app-pushbot
-# luci-i18n-passwall-zh-cn, luci-i18n-accesscontrol-zh-cn
-# luci-i18n-openlist-zh-cn
 
 # --- 主题 ---
 PACKAGES="$PACKAGES luci-theme-argon"
