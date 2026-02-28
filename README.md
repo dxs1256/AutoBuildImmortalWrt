@@ -17,16 +17,21 @@
 - Docker 支持: 可选集成
 - PPPoE 配置: 可预设宽带信息
 
-## 预装功能
+## 预装插件
 
-### 网络工具
-- 动态 DNS、防火墙、UPnP、SQM、WireGuard
-
-### 系统管理  
-- 定时任务、文件传输、Samba、网页终端
-
-### Docker 支持（可选）
-- Docker 容器管理界面
+- luci-app-adguardhome - 广告拦截
+- luci-app-firewall - 防火墙管理
+- luci-app-passwall - 科学上网
+- luci-app-turboacc - 网络加速
+- luci-app-aria2 - 下载工具
+- luci-app-diskman - 磁盘管理
+- luci-app-samba4 - 文件共享
+- luci-app-docker - Docker管理
+- luci-app-openlist - OpenList
+- luci-app-package-manager - 软件包管理
+- luci-theme-argon - Argon主题
+- luci-theme-bootstrap - 默认主题
+- 防火墙、基础、磁盘管理、PassWall、Samba等中文界面
 
 ## 获取固件
 构建完成后在 Release 页面下载 .img.gz 文件，使用 balenaEtcher 烧录即可。
