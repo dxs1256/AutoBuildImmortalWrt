@@ -73,8 +73,12 @@ jobs:
           if [[ "$INPUT_VERSION" == "latest" ]]; then
             echo "🔄 用户选择了 latest，正在从 Docker Hub 获取最新 24.10.x 版本号..."
             
-            # 通过 API 获取官方包含 24.10 的所有镜像标签，并自动排序取最大值
-            LATEST_VER=$(curl -sL "https://hub.docker.com/v2/repositories/immortalwrt/imagebuilder/tags?page_size=100" | grep -oP '"name":"rockchip-armv8-openwrt-\K24\.10\.\d+' | sort -V | tail -n1)
+            # 使用更稳定的 API 查询方式
+            LATEST_VER=$(curl -sL "https://hub.docker.com/v2/repositories/immortalwrt/imagebuilder/tags/?page_size=100" | \
+            jq -r '.results[].name' | \
+            grep -E '^24\.10\.[0-9]+' | \
+            sort -V | \
+            tail -n1)
             
             if [[ -z "$LATEST_VER" ]]; then
               echo "⚠️ 获取最新版本失败，触发防呆机制，回退到默认的 24.10.5"
