@@ -25,7 +25,7 @@ on:
       custom_router_ip:
         description: "请设置软路由的管理地址(注意仅对多网口软路由有效) 格式:192.168.x.1 或 10.x.x.1"
         required: true
-        default: "192.168.100.1"
+        default: "192.168.10.1"
       rootfs_partsize:
         description: '设置软件包大小 单位(MB)'
         required: true
@@ -50,17 +50,19 @@ on:
       enable_pppoe:
         description: "是否配置PPPoE拨号信息?"
         required: true
-        default: 'no'
+        default: 'yes'
         type: choice
         options:
         - 'yes'
         - 'no'
       pppoe_account:
         description: "宽带账号 (若启用PPPoE)"
-        required: false
+        required: true
+        default: "071900263467"
       pppoe_password:
         description: "宽带密码 (若启用PPPoE)"
-        required: false
+        required: true
+        default: "123456"
 
 jobs:
   build:
@@ -99,13 +101,13 @@ jobs:
           echo "EFFECTIVE_PPPOE_ACCOUNT=$pppoe_account" >> "$GITHUB_ENV"
           echo "EFFECTIVE_PPPOE_PASSWORD=$pppoe_password" >> "$GITHUB_ENV"
       
-      - name: Check Optional Components
         run: |
           if [[ "${{ inputs.include_docker }}" == "yes" ]]; then
              echo "✅ include_docker=yes，将在 build24.sh 中注入 Docker 组件"
           else
              echo "ℹ️ include_docker=no，将跳过 Docker 组件"
           fi
+
       
       - name: Building Rockchip ImmortalWrt 24.10.x
         run: |
@@ -177,6 +179,7 @@ jobs:
           else
             echo -e "\n#### 不带docker" >> ${{ github.workspace }}/router-info.md
           fi
+          echo -e "\n#### 默认带Passwall" >> ${{ github.workspace }}/router-info.md
 
           if [ "${{ github.event.inputs.include_passwall }}" == "yes" ]; then
             echo -e "\n#### 默认带Passwall" >> ${{ github.workspace }}/router-info.md
