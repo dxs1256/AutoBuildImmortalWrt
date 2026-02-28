@@ -4,13 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       luci_version:
-        description: "选择luci版本"
-        required: false
-        default: "24.10.5"
+        description: "选择luci版本 (选 latest 自动获取最新 24.10.x)"
+        required: true
+        default: "latest"
         type: choice
         options:
-          - 24.10.4
+          - latest
           - 24.10.5
+          - 24.10.4
+          - 24.10.3
       profile:
         type: choice
         description: "固定机型：friendlyarm_nanopi-r4s"
@@ -19,15 +21,23 @@ on:
         required: true
         default: 'friendlyarm_nanopi-r4s'
       custom_router_ip:
-        description: "管理地址:192.168.1.1"
+        description: "管理地址: 192.168.10.1"
         required: true
-        default: "192.168.11.1"
+        default: "192.168.10.1"
       rootfs_partsize:
         description: '设置软件包大小 单位(MB)'
         required: true
         default: '3072'
       include_docker:
         description: "是否编译 Docker 插件"
+        required: true
+        default: 'yes'
+        type: choice
+        options:
+          - 'yes'
+          - 'no'
+      include_passwall:
+        description: "是否编译 Passwall 插件"
         required: true
         default: 'yes'
         type: choice
@@ -62,11 +72,38 @@ jobs:
       - name: Set executable permissions
         run: chmod +x ${{ github.workspace }}/rockchip/build24.sh
       
+      # ================= 新增核心逻辑：解析 latest 版本号 =================
+      - name: Resolve LUCI Version
+        id: resolve_version
+        run: |
+          INPUT_VERSION="${{ inputs.luci_version }}"
+          
+          if [[ "$INPUT_VERSION" == "latest" ]]; then
+            echo "🔄 用户选择了 latest，正在从 Docker Hub 获取最新 24.10.x 版本号..."
+            
+            # 通过 API 获取官方包含 24.10 的所有镜像标签，并自动排序取最大值
+            LATEST_VER=$(curl -sL "https://hub.docker.com/v2/repositories/immortalwrt/imagebuilder/tags?page_size=100" | grep -oP '"name":"rockchip-armv8-openwrt-\K24\.10\.\d+' | sort -V | tail -n1)
+            
+            if [[ -z "$LATEST_VER" ]]; then
+              echo "⚠️ 获取最新版本失败，触发防呆机制，回退到默认的 24.10.5"
+              LATEST_VER="24.10.5"
+            else
+              echo "✅ 成功获取官方最新版本: $LATEST_VER"
+            fi
+            
+            # 将真实版本号存入环境变量
+            echo "RESOLVED_VERSION=$LATEST_VER" >> $GITHUB_ENV
+          else
+            echo "📌 用户手动指定了版本: $INPUT_VERSION"
+            echo "RESOLVED_VERSION=$INPUT_VERSION" >> $GITHUB_ENV
+          fi
+      # ================================================================
+
       - name: Save Custom Router IP into OpenWrt files
         run: |
           mkdir -p "${{ github.workspace }}/custom"
-          echo "${{ github.event.inputs.custom_router_ip }}" > "${{ github.workspace }}/custom/custom_router_ip.txt"
-          echo "您设置的Rockchip软路由管理地址是:${{ github.event.inputs.custom_router_ip }}"
+          echo "${{ inputs.custom_router_ip }}" > "${{ github.workspace }}/custom/custom_router_ip.txt"
+          echo "您设置的Rockchip软路由管理地址是:${{ inputs.custom_router_ip }}"
       
       - name: Normalize PPPoE Inputs
         run: |
@@ -74,13 +111,10 @@ jobs:
           pppoe_account="${{ inputs.pppoe_account }}"
           pppoe_password="${{ inputs.pppoe_password }}"
 
-          # 核心逻辑：如果选了 no，直接强制清空账号和密码，忽略网页上输入框的内容
           if [[ "$effective_enable_pppoe" == "no" ]]; then
             echo "ℹ️ 用户选择了不启用 PPPoE(no)，已自动清空丢弃账号和密码"
             pppoe_account=""
             pppoe_password=""
-            
-          # 如果选了 yes，则检查是否真的填写了账号密码
           elif [[ "$effective_enable_pppoe" == "yes" ]]; then
             if [[ -z "$pppoe_account" || -z "$pppoe_password" ]]; then
               echo "⚠️ 警告: 启用了 PPPoE，但账号或密码为空！自动回退为不启用(no)。"
@@ -92,7 +126,6 @@ jobs:
             fi
           fi
 
-          # 导出环境变量给后续的 Docker 容器使用
           echo "EFFECTIVE_ENABLE_PPPOE=$effective_enable_pppoe" >> "$GITHUB_ENV"
           echo "EFFECTIVE_PPPOE_ACCOUNT=$pppoe_account" >> "$GITHUB_ENV"
           echo "EFFECTIVE_PPPOE_PASSWORD=$pppoe_password" >> "$GITHUB_ENV"
@@ -106,14 +139,15 @@ jobs:
              echo "✅ include_passwall=yes，将在 build24.sh 中注入 Passwall 组件"
           fi
       
-      - name: Building Rockchip ImmortalWrt 24.10.x
+      - name: Building Rockchip ImmortalWrt
         run: |
-          profile="${{ github.event.inputs.profile }}"
-          include_docker="${{ github.event.inputs.include_docker }}"
-          include_passwall="${{ github.event.inputs.include_passwall }}"
-          rootfs_partsize="${{ github.event.inputs.rootfs_partsize }}"
-          luci_version="${{ github.event.inputs.luci_version }}"
-          echo "Building for profile: $profile"
+          profile="${{ inputs.profile }}"
+          include_docker="${{ inputs.include_docker }}"
+          include_passwall="${{ inputs.include_passwall }}"
+          rootfs_partsize="${{ inputs.rootfs_partsize }}"
+          
+          # ⚠️ 注意这里：使用了我们上面刚刚解析出来的真实版本号 env.RESOLVED_VERSION
+          echo "Building for profile: $profile with version: ${{ env.RESOLVED_VERSION }}"
           
           docker run --rm -i \
               --user root \
@@ -131,12 +165,12 @@ jobs:
               -e ENABLE_PPPOE=$EFFECTIVE_ENABLE_PPPOE \
               -e PPPOE_ACCOUNT=$EFFECTIVE_PPPOE_ACCOUNT \
               -e PPPOE_PASSWORD=$EFFECTIVE_PPPOE_PASSWORD \
-          immortalwrt/imagebuilder:rockchip-armv8-openwrt-${luci_version} /bin/bash /home/build/immortalwrt/build.sh
+          immortalwrt/imagebuilder:rockchip-armv8-openwrt-${{ env.RESOLVED_VERSION }} /bin/bash /home/build/immortalwrt/build.sh
         
       - name: Generate package report
         run: |
           TARGET_DIR="${{ github.workspace }}/bin/targets/rockchip/armv8"
-          PROFILE="${{ github.event.inputs.profile }}"
+          PROFILE="${{ inputs.profile }}"
           MANIFEST_FILE=$(ls "$TARGET_DIR"/*"$PROFILE"*.manifest 2>/dev/null | head -n1)
           if [ -z "$MANIFEST_FILE" ]; then
             MANIFEST_FILE=$(ls "$TARGET_DIR"/*.manifest 2>/dev/null | head -n1)
@@ -155,9 +189,7 @@ jobs:
             kernel_version="unknown"
           fi
 
-          echo "FIRMWARE_VERSION=${{ github.event.inputs.luci_version }}" >> "$GITHUB_ENV"
           echo "KERNEL_VERSION=$kernel_version" >> "$GITHUB_ENV"
-          # 生成当前日期用于 Release 标签 (例如: 2024-11-20-1430)
           echo "BUILD_DATE=$(date +'%Y-%m-%d-%H%M')" >> "$GITHUB_ENV"
 
       - name: Create info
@@ -165,21 +197,21 @@ jobs:
           cat > ${{ github.workspace }}/router-info.md <<EOF
           ## 📡 路由器后台信息
 
-          - ✳️ **软路由型号**: ${{ github.event.inputs.profile }}
-          - 🏠 **后台地址**: ${{ github.event.inputs.custom_router_ip }}
+          - ✳️ **软路由型号**: ${{ inputs.profile }}
+          - 🏠 **后台地址**: ${{ inputs.custom_router_ip }}
           - 👤 **用户名**: root
           - 🔑 **密码**: 无
-          - 🧩 **固件版本**: ${FIRMWARE_VERSION}
+          - 🧩 **固件版本**: ${{ env.RESOLVED_VERSION }}
           - 🧠 **内核版本**: ${KERNEL_VERSION}
           EOF
 
-          if [ "${{ github.event.inputs.include_docker }}" == "yes" ]; then
+          if [ "${{ inputs.include_docker }}" == "yes" ]; then
             echo -e "\n- 🐳 **Docker**: 已集成" >> ${{ github.workspace }}/router-info.md
           else
             echo -e "\n- 🐳 **Docker**: 未集成" >> ${{ github.workspace }}/router-info.md
           fi
 
-          if [ "${{ github.event.inputs.include_passwall }}" == "yes" ]; then
+          if [ "${{ inputs.include_passwall }}" == "yes" ]; then
             echo -e "- ✈️ **Passwall**: 已集成" >> ${{ github.workspace }}/router-info.md
           else
             echo -e "- ✈️ **Passwall**: 未集成" >> ${{ github.workspace }}/router-info.md
@@ -189,7 +221,7 @@ jobs:
         uses: softprops/action-gh-release@v2.2.1
         with:
           tag_name: R4S-ImmortalWrt-${{ env.BUILD_DATE }}
-          name: ImmortalWrt-R4S-${{ env.FIRMWARE_VERSION }}
+          name: ImmortalWrt-R4S-${{ env.RESOLVED_VERSION }}
           body_path: ${{ github.workspace }}/router-info.md
           files: |
             ${{ github.workspace }}/bin/targets/rockchip/armv8/*.img.gz
