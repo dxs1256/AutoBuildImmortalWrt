@@ -66,14 +66,6 @@ PACKAGES="$PACKAGES luci-i18n-samba4-zh-cn"
 # 合并imm仓库以外的第三方插件
 PACKAGES="$PACKAGES $CUSTOM_PACKAGES"
 
-# 按工作流输入开关 Passwall 相关插件
-if [ "$INCLUDE_PASSWALL" = "yes" ]; then
-    PACKAGES="$PACKAGES luci-app-passwall luci-i18n-passwall-zh-cn"
-    echo "✅ include_passwall=yes，已添加 Passwall 相关组件"
-else
-    echo "ℹ️ include_passwall=no，跳过 Passwall 相关组件"
-fi
-
 # 按工作流输入开关 docker 相关插件
 if [ "$INCLUDE_DOCKER" = "yes" ]; then
     PACKAGES="$PACKAGES docker luci-app-dockerman luci-i18n-dockerman-zh-cn"
