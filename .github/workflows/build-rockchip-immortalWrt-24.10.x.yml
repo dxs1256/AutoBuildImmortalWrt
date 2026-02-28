@@ -1,4 +1,4 @@
-name: build-rockchip-immortalWrt-24.10.x
+name: Build-Rockchip-Nanopi-R4S
 
 on:
   workflow_dispatch:
@@ -178,7 +178,7 @@ jobs:
           fi
 
           cp "$MANIFEST_FILE" "${{ github.workspace }}/firmware-packages.txt"
-          grep -E '^(luci-app|luci-i18n|luci-theme)-' "$MANIFEST_FILE" > "${{ github.workspace }}/firmware-plugins.txt" || true
+          grep -E '^(luci-app|luci-i18n|luci-theme)-' "$MANIFEST_FILE" > "${{ github.workspace }}/Plugin-list.txt" || true
 
           kernel_version=$(awk '/^kernel - / {print $3; exit}' "$MANIFEST_FILE")
           if [ -z "$kernel_version" ]; then
@@ -215,8 +215,7 @@ jobs:
           body_path: ${{ github.workspace }}/router-info.md
           files: |
             ${{ github.workspace }}/bin/targets/rockchip/armv8/*.img.gz
-            ${{ github.workspace }}/firmware-packages.txt
-            ${{ github.workspace }}/firmware-plugins.txt
+            ${{ github.workspace }}/Plugin-list.txt
           token: ${{ secrets.GITHUB_TOKEN }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
