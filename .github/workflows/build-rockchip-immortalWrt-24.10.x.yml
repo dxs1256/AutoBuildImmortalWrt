@@ -1,4 +1,4 @@
-name: build-rockchip-immortalWrt-24.10.x
+name: build-rockchip-nanopi-r4s
 
 on:
   workflow_dispatch:
@@ -73,10 +73,11 @@ jobs:
           if [[ "$INPUT_VERSION" == "latest" ]]; then
             echo "🔄 用户选择了 latest，正在从 Docker Hub 获取最新 24.10.x 版本号..."
             
-            # 使用更稳定的 API 查询方式
+            # 使用更稳定的 API 查询方式，匹配包含平台信息的完整 tag
             LATEST_VER=$(curl -sL "https://hub.docker.com/v2/repositories/immortalwrt/imagebuilder/tags/?page_size=100" | \
             jq -r '.results[].name' | \
-            grep -E '^24\.10\.[0-9]+' | \
+            grep -E '.*-openwrt-24\.10\.[0-9]+$' | \
+            sed -E 's/.*-openwrt-(24\.10\.[0-9]+)$/\1/' | \
             sort -V | \
             tail -n1)
             
@@ -185,7 +186,13 @@ jobs:
             kernel_version="unknown"
           fi
 
-          echo "KERNEL_VERSION=$kernel_version" >> "$GITHUB_ENV"
+          # 只提取内核版本号的前缀部分（如 6.6.122）
+          kernel_version_short=$(echo "$kernel_version" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+')
+          if [ -z "$kernel_version_short" ]; then
+            kernel_version_short="$kernel_version"
+          fi
+
+          echo "KERNEL_VERSION=$kernel_version_short" >> "$GITHUB_ENV"
           echo "BUILD_DATE=$(date +'%Y-%m-%d-%H%M')" >> "$GITHUB_ENV"
 
       - name: Create info
