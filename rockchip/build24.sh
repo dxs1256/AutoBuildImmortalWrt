@@ -63,8 +63,7 @@ PACKAGES="$PACKAGES curl openssh-sftp-server luci-i18n-firewall-zh-cn"
 PACKAGES="$PACKAGES luci-i18n-diskman-zh-cn luci-i18n-samba4-zh-cn luci-i18n-aria2-zh-cn"
 
 # --- 网络与插件 ---
-PACKAGES="$PACKAGES luci-i18n-turboacc-zh-cn luci-app-openlist luci-app-pushbot luci-i18n-accesscontrol-zh-cn"
-PACKAGES="$PACKAGES luci-i18n-adguardhome-zh-cn"
+PACKAGES="$PACKAGES luci-app-openlist"
 
 # --- 主题 ---
 PACKAGES="$PACKAGES luci-theme-argon"
