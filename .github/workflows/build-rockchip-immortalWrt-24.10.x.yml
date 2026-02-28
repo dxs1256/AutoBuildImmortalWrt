@@ -43,7 +43,6 @@ on:
         description: |
           是否编译 Passwall 插件
         required: true
-        default: 'no'
         type: choice
         options:
           - 'yes'

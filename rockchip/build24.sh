@@ -60,6 +60,10 @@ PACKAGES="$PACKAGES luci-i18n-diskman-zh-cn"
 PACKAGES="$PACKAGES luci-i18n-firewall-zh-cn"
 PACKAGES="$PACKAGES luci-theme-argon"
 PACKAGES="$PACKAGES luci-i18n-samba4-zh-cn"
+# 显式安装常用 LuCI 应用，避免仅依赖第三方 run 包导致缺失
+PACKAGES="$PACKAGES luci-app-adguardhome luci-app-turboacc luci-app-aria2 luci-app-openlist"
+# 不需要 cpufreq，显式从默认包中排除
+PACKAGES="$PACKAGES -luci-app-cpufreq"
 # ======== shell/custom-packages.sh =======
 # 合并imm仓库以外的第三方插件
 PACKAGES="$PACKAGES $CUSTOM_PACKAGES"
