@@ -97,12 +97,6 @@ jobs:
           else
              echo "ℹ️ include_docker=no，将跳过 Docker 组件"
           fi
-
-          if [[ "${{ inputs.include_passwall }}" == "yes" ]]; then
-             echo "✅ include_passwall=yes，将在 build24.sh 中注入 Passwall 组件"
-          else
-             echo "ℹ️ include_passwall=no，将跳过 Passwall 组件"
-          fi
       
       - name: Building Rockchip ImmortalWrt 24.10.x
         run: |
