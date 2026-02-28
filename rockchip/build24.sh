@@ -5,6 +5,29 @@
 source shell/custom-packages.sh
 source shell/switch_repository.sh
 
+# ==========================================
+# 3. 添加自定义插件源码
+# ==========================================
+echo "📥 添加自定义插件源码"
+
+# 添加 luci-app-pushbot 插件
+if [ ! -d "/home/build/immortalwrt/package/luci-app-pushbot" ]; then
+    echo "🔄 克隆 pushbot 插件..."
+    git clone https://github.com/gaoyaxuan/luci-app-pushbot /home/build/immortalwrt/package/luci-app-pushbot
+else
+    echo "⚡️ pushbot 插件已存在，更新代码..."
+    cd /home/build/immortalwrt/package/luci-app-pushbot && git pull && cd -
+fi
+
+# 添加 luci-app-accesscontrol 插件
+if [ ! -d "/home/build/immortalwrt/package/luci-app-accesscontrol" ]; then
+    echo "🔄 克隆 accesscontrol 插件..."
+    git clone https://github.com/kiddin9/luci-app-accesscontrol.git /home/build/immortalwrt/package/luci-app-accesscontrol
+else
+    echo "⚡️ accesscontrol 插件已存在，更新代码..."
+    cd /home/build/immortalwrt/package/luci-app-accesscontrol && git pull && cd -
+fi
+
 # 合并第三方插件
 CUSTOM_PACKAGES="$BASE_CUSTOM_PACKAGES $CUSTOM_PACKAGES"
 echo "第三方软件包: $CUSTOM_PACKAGES"
@@ -64,6 +87,9 @@ PACKAGES="$PACKAGES luci-theme-argon"
 
 # 合并外部第三方插件
 PACKAGES="$PACKAGES $CUSTOM_PACKAGES"
+
+# --- 强制包含自定义插件 ---
+PACKAGES="$PACKAGES luci-app-pushbot luci-app-accesscontrol"
 
 # --- 功能开关判断 ---
 if [ "$INCLUDE_DOCKER" = "yes" ]; then
