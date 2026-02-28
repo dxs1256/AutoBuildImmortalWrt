@@ -21,23 +21,15 @@ on:
         required: true
         default: 'friendlyarm_nanopi-r4s'
       custom_router_ip:
-        description: "管理地址: 192.168.10.1"
+        description: "管理地址: 192.168.1.1"
         required: true
-        default: "192.168.10.1"
+        default: "192.168.1.1"
       rootfs_partsize:
         description: '设置软件包大小 单位(MB)'
         required: true
         default: '3072'
       include_docker:
         description: "是否编译 Docker 插件"
-        required: true
-        default: 'yes'
-        type: choice
-        options:
-          - 'yes'
-          - 'no'
-      include_passwall:
-        description: "是否编译 Passwall 插件"
         required: true
         default: 'yes'
         type: choice
