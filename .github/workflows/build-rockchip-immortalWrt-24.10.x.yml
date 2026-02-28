@@ -135,6 +135,31 @@ jobs:
           immortalwrt/imagebuilder:rockchip-armv8-openwrt-${luci_version} /bin/bash /home/build/immortalwrt/build.sh
         
     
+      - name: Generate package report
+        run: |
+          TARGET_DIR="${{ github.workspace }}/bin/targets/rockchip/armv8"
+          PROFILE="${{ github.event.inputs.profile }}"
+          MANIFEST_FILE=$(ls "$TARGET_DIR"/*"$PROFILE"*.manifest 2>/dev/null | head -n1)
+          if [ -z "$MANIFEST_FILE" ]; then
+            MANIFEST_FILE=$(ls "$TARGET_DIR"/*.manifest 2>/dev/null | head -n1)
+          fi
+
+          if [ -z "$MANIFEST_FILE" ]; then
+            echo "❌ 未找到 manifest 文件，无法生成插件清单" >&2
+            exit 1
+          fi
+
+          cp "$MANIFEST_FILE" "${{ github.workspace }}/firmware-packages.txt"
+          grep -E '^(luci-app|luci-i18n|luci-theme)-' "$MANIFEST_FILE" > "${{ github.workspace }}/firmware-plugins.txt" || true
+
+          kernel_version=$(awk '/^kernel - / {print $3; exit}' "$MANIFEST_FILE")
+          if [ -z "$kernel_version" ]; then
+            kernel_version="unknown"
+          fi
+
+          echo "FIRMWARE_VERSION=${{ github.event.inputs.luci_version }}" >> "$GITHUB_ENV"
+          echo "KERNEL_VERSION=$kernel_version" >> "$GITHUB_ENV"
+
       - name: Create info
         run: |
           cat > ${{ github.workspace }}/router-info.md <<EOF
@@ -144,6 +169,8 @@ jobs:
           - 🏠 **后台地址**: ${{ github.event.inputs.custom_router_ip }}
           - 👤 **用户名**: root
           - 🔑 **密码**: 无
+          - 🧩 **固件版本**: ${FIRMWARE_VERSION}
+          - 🧠 **内核版本**: ${KERNEL_VERSION}
           EOF
 
           if [ "${{ github.event.inputs.include_docker }}" == "yes" ]; then
@@ -166,6 +193,8 @@ jobs:
           body_path: ${{ github.workspace }}/router-info.md
           files: |
             ${{ github.workspace }}/bin/targets/rockchip/armv8/*.img.gz
+            ${{ github.workspace }}/firmware-packages.txt
+            ${{ github.workspace }}/firmware-plugins.txt
           token: ${{ secrets.GITHUB_TOKEN }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
