@@ -74,7 +74,7 @@ PACKAGES="$PACKAGES $CUSTOM_PACKAGES"
 # --- 功能开关判断 ---
 if [ "$INCLUDE_DOCKER" = "yes" ]; then
     # 只需安装 i18n 包，它会自动依赖安装 docker 主程序
-    PACKAGES="$PACKAGES luci-app-docker luci-i18n-dockerman-zh-cn"
+    PACKAGES="$PACKAGES luci-app-docker"
 fi
 
 if [ "$INCLUDE_PASSWALL" = "yes" ]; then
