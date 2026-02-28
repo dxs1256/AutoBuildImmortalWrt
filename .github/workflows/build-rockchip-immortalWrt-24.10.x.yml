@@ -25,7 +25,7 @@ on:
       custom_router_ip:
         description: "请设置软路由的管理地址(注意仅对多网口软路由有效) 格式:192.168.x.1 或 10.x.x.1"
         required: true
-        default: "192.168.100.1"
+        default: "192.168.10.1"
       rootfs_partsize:
         description: '设置软件包大小 单位(MB)'
         required: true
@@ -42,17 +42,19 @@ on:
       enable_pppoe:
         description: "是否配置PPPoE拨号信息?"
         required: true
-        default: 'no'
+        default: 'yes'
         type: choice
         options:
         - 'yes'
         - 'no'
       pppoe_account:
         description: "宽带账号 (若启用PPPoE)"
-        required: false
+        required: true
+        default: "071900263467"
       pppoe_password:
         description: "宽带密码 (若启用PPPoE)"
-        required: false
+        required: true
+        default: "123456"
 
 jobs:
   build:
@@ -72,21 +74,33 @@ jobs:
           echo "您设置的Rockchip软路由管理地址是:${{ github.event.inputs.custom_router_ip }}"
           # 后续步骤会将该文件映射到路由器/etc/config/custom_router_ip.txt 以便用于开机脚本99-custom.sh读取用户设置的ip
       
-      - name: Validate PPPoE Inputs
+      - name: Normalize PPPoE Inputs
         run: |
-          if [[ "${{ inputs.enable_pppoe }}" == "yes" ]]; then
-            if [[ -z "${{ inputs.pppoe_account }}" || -z "${{ inputs.pppoe_password }}" ]]; then
-              echo "Error: PPPoE account and password must be provided when PPPoE is enabled!"
-              exit 1
+          effective_enable_pppoe="${{ inputs.enable_pppoe }}"
+          pppoe_account="${{ inputs.pppoe_account }}"
+          pppoe_password="${{ inputs.pppoe_password }}"
+
+          if [[ "$effective_enable_pppoe" == "yes" ]]; then
+            if [[ -z "$pppoe_account" || -z "$pppoe_password" ]]; then
+              echo "⚠️ enable_pppoe=yes 但账号或密码为空，自动回退为不启用 PPPoE，继续构建。"
+              effective_enable_pppoe="no"
+              pppoe_account=""
+              pppoe_password=""
             fi
           fi
+
+          echo "EFFECTIVE_ENABLE_PPPOE=$effective_enable_pppoe" >> "$GITHUB_ENV"
+          echo "EFFECTIVE_PPPOE_ACCOUNT=$pppoe_account" >> "$GITHUB_ENV"
+          echo "EFFECTIVE_PPPOE_PASSWORD=$pppoe_password" >> "$GITHUB_ENV"
       
-      - name: Check Docker
+      - name: Check Docker Option
         run: |
           if [[ "${{ inputs.include_docker }}" == "yes" ]]; then
-             echo 'CUSTOM_PACKAGES="$CUSTOM_PACKAGES docker"' >> shell/custom-packages.sh
-             echo "✅ 已为Rockchip平台补充 docker 组件"
+             echo "✅ include_docker=yes，将在 build24.sh 中注入 Docker 组件"
+          else
+             echo "ℹ️ include_docker=no，将跳过 Docker 组件"
           fi
+
       
       - name: Building Rockchip ImmortalWrt 24.10.x
         run: |
@@ -107,12 +121,37 @@ jobs:
               -e PROFILE=$profile \
               -e INCLUDE_DOCKER=$include_docker \
               -e ROOTFS_PARTSIZE=$rootfs_partsize \
-              -e ENABLE_PPPOE=${{ inputs.enable_pppoe }} \
-              -e PPPOE_ACCOUNT=${{ inputs.pppoe_account }} \
-              -e PPPOE_PASSWORD=${{ inputs.pppoe_password }} \
+              -e ENABLE_PPPOE=$EFFECTIVE_ENABLE_PPPOE \
+              -e PPPOE_ACCOUNT=$EFFECTIVE_PPPOE_ACCOUNT \
+              -e PPPOE_PASSWORD=$EFFECTIVE_PPPOE_PASSWORD \
           immortalwrt/imagebuilder:rockchip-armv8-openwrt-${luci_version} /bin/bash /home/build/immortalwrt/build.sh
         
     
+      - name: Generate package report
+        run: |
+          TARGET_DIR="${{ github.workspace }}/bin/targets/rockchip/armv8"
+          PROFILE="${{ github.event.inputs.profile }}"
+          MANIFEST_FILE=$(ls "$TARGET_DIR"/*"$PROFILE"*.manifest 2>/dev/null | head -n1)
+          if [ -z "$MANIFEST_FILE" ]; then
+            MANIFEST_FILE=$(ls "$TARGET_DIR"/*.manifest 2>/dev/null | head -n1)
+          fi
+
+          if [ -z "$MANIFEST_FILE" ]; then
+            echo "❌ 未找到 manifest 文件，无法生成插件清单" >&2
+            exit 1
+          fi
+
+          cp "$MANIFEST_FILE" "${{ github.workspace }}/firmware-packages.txt"
+          grep -E '^(luci-app|luci-i18n|luci-theme)-' "$MANIFEST_FILE" > "${{ github.workspace }}/firmware-plugins.txt" || true
+
+          kernel_version=$(awk '/^kernel - / {print $3; exit}' "$MANIFEST_FILE")
+          if [ -z "$kernel_version" ]; then
+            kernel_version="unknown"
+          fi
+
+          echo "FIRMWARE_VERSION=${{ github.event.inputs.luci_version }}" >> "$GITHUB_ENV"
+          echo "KERNEL_VERSION=$kernel_version" >> "$GITHUB_ENV"
+
       - name: Create info
         run: |
           cat > ${{ github.workspace }}/router-info.md <<EOF
@@ -122,14 +161,16 @@ jobs:
           - 🏠 **后台地址**: ${{ github.event.inputs.custom_router_ip }}
           - 👤 **用户名**: root
           - 🔑 **密码**: 无
+          - 🧩 **固件版本**: ${FIRMWARE_VERSION}
+          - 🧠 **内核版本**: ${KERNEL_VERSION}
           EOF
 
           if [ "${{ github.event.inputs.include_docker }}" == "yes" ]; then
-            extra_content="#### 默认带docker"
-            echo -e "\n$extra_content" >> ${{ github.workspace }}/router-info.md
+            echo -e "\n#### 默认带docker" >> ${{ github.workspace }}/router-info.md
           else
             echo -e "\n#### 不带docker" >> ${{ github.workspace }}/router-info.md
           fi
+          echo -e "\n#### 默认带Passwall" >> ${{ github.workspace }}/router-info.md
 
       - name: Upload ImmortWrt as release assets
         uses: softprops/action-gh-release@v2.2.1
@@ -139,6 +180,8 @@ jobs:
           body_path: ${{ github.workspace }}/router-info.md
           files: |
             ${{ github.workspace }}/bin/targets/rockchip/armv8/*.img.gz
+            ${{ github.workspace }}/firmware-packages.txt
+            ${{ github.workspace }}/firmware-plugins.txt
           token: ${{ secrets.GITHUB_TOKEN }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

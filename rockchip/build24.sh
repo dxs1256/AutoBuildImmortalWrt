@@ -3,7 +3,10 @@
 source shell/custom-packages.sh
 source shell/switch_repository.sh
 # 固定第三方插件（按需求仅保留以下插件）
-CUSTOM_PACKAGES="luci-app-adguardhome luci-i18n-adguardhome-zh-cn luci-app-turboacc luci-i18n-turboacc-zh-cn luci-app-aria2 luci-i18n-aria2-zh-cn luci-app-openlist luci-i18n-openlist-zh-cn"
+# 注意：部分第三方 i18n 包在某些版本仓库中可能不存在，默认仅保留稳定可用项。
+BASE_CUSTOM_PACKAGES="luci-app-adguardhome luci-app-turboacc luci-app-aria2 luci-i18n-aria2-zh-cn luci-app-openlist luci-i18n-openlist-zh-cn"
+# 保留 shell/custom-packages.sh 中的预设，并与基础插件合并
+CUSTOM_PACKAGES="$BASE_CUSTOM_PACKAGES $CUSTOM_PACKAGES"
 echo "第三方软件包: $CUSTOM_PACKAGES"
 LOGFILE="/tmp/uci-defaults-log.txt"
 echo "Starting 99-custom.sh at $(date)" >> $LOGFILE
@@ -56,18 +59,29 @@ cat repositories.conf
 PACKAGES=""
 PACKAGES="$PACKAGES curl"
 PACKAGES="$PACKAGES openssh-sftp-server"
-PACKAGES="$PACKAGES docker"
-PACKAGES="$PACKAGES luci-app-dockerman"
-PACKAGES="$PACKAGES luci-i18n-dockerman-zh-cn"
 PACKAGES="$PACKAGES luci-i18n-diskman-zh-cn"
 PACKAGES="$PACKAGES luci-i18n-firewall-zh-cn"
 PACKAGES="$PACKAGES luci-theme-argon"
-PACKAGES="$PACKAGES luci-app-passwall"
-PACKAGES="$PACKAGES luci-i18n-passwall-zh-cn"
 PACKAGES="$PACKAGES luci-i18n-samba4-zh-cn"
+# 显式安装常用 LuCI 应用，避免仅依赖第三方 run 包导致缺失
+PACKAGES="$PACKAGES luci-app-adguardhome luci-app-turboacc luci-app-aria2 luci-app-openlist"
+# 不需要 cpufreq，显式从默认包中排除
+PACKAGES="$PACKAGES -luci-app-cpufreq"
 # ======== shell/custom-packages.sh =======
 # 合并imm仓库以外的第三方插件
 PACKAGES="$PACKAGES $CUSTOM_PACKAGES"
+
+# Passwall 为必装插件
+PACKAGES="$PACKAGES luci-app-passwall luci-i18n-passwall-zh-cn"
+echo "✅ Passwall 为必装插件，已添加"
+
+# 按工作流输入开关 docker 相关插件
+if [ "$INCLUDE_DOCKER" = "yes" ]; then
+    PACKAGES="$PACKAGES docker luci-app-dockerman luci-i18n-dockerman-zh-cn"
+    echo "✅ include_docker=yes，已添加 Docker 相关组件"
+else
+    echo "ℹ️ include_docker=no，跳过 Docker 相关组件"
+fi
 
 # 构建镜像
 echo "$(date '+%Y-%m-%d %H:%M:%S') - Building image with the following packages:"
