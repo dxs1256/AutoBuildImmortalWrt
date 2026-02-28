@@ -52,25 +52,51 @@ fi
 echo "$(date '+%Y-%m-%d %H:%M:%S') - 开始构建固件..."
 echo "查看repositories.conf信息——————"
 cat repositories.conf
-# 定义所需安装的包列表 下列插件你都可以自行删减
+
+# =======================================================
+# 定义所需安装的包列表 (已整理并启用中文支持)
+# =======================================================
 PACKAGES=""
+
+# 1. 基础系统与工具
 PACKAGES="$PACKAGES curl"
 PACKAGES="$PACKAGES openssh-sftp-server"
-PACKAGES="$PACKAGES luci-i18n-diskman-zh-cn"
-PACKAGES="$PACKAGES luci-i18n-firewall-zh-cn"
+PACKAGES="$PACKAGES luci-i18n-firewall-zh-cn" # 防火墙中文
+
+# 2. 磁盘与存储/NAS (使用中文包自动依赖主程序)
+PACKAGES="$PACKAGES luci-i18n-diskman-zh-cn"  # 磁盘管理
+PACKAGES="$PACKAGES luci-i18n-samba4-zh-cn"   # Samba 共享
+PACKAGES="$PACKAGES luci-i18n-aria2-zh-cn"    # Aria2 下载
+
+# 3. 网络加速与代理
+PACKAGES="$PACKAGES luci-app-passwall"         # Passwall (通常自带语言或自适应)
+PACKAGES="$PACKAGES luci-i18n-turboacc-zh-cn" # 网络加速
+PACKAGES="$PACKAGES luci-app-openlist"         # OpenList
+
+# 4. 广告过滤与安全控制
+PACKAGES="$PACKAGES luci-i18n-adguardhome-zh-cn" # AdGuard Home
+PACKAGES="$PACKAGES luci-i18n-accesscontrol-zh-cn" # 上网时间控制
+
+# 5. 通知与推送
+PACKAGES="$PACKAGES luci-app-pushbot"          # 推送机器人
+
+# 6. 主题
 PACKAGES="$PACKAGES luci-theme-argon"
-PACKAGES="$PACKAGES luci-i18n-samba4-zh-cn"
-# 显式安装常用 LuCI 应用，避免仅依赖第三方 run 包导致缺失
-PACKAGES="$PACKAGES luci-app-adguardhome luci-app-turboacc luci-app-aria2 luci-app-openlist"
-# 不需要 cpufreq，显式从默认包中排除
+
+# 7. 显式排除的包
 PACKAGES="$PACKAGES -luci-app-cpufreq"
+
+
 # ======== shell/custom-packages.sh =======
 # 合并imm仓库以外的第三方插件
 PACKAGES="$PACKAGES $CUSTOM_PACKAGES"
+
 # 按工作流输入开关 docker 相关插件
+# 注意：请确保你的 .yml 配置文件中 include_docker 设置为 true/yes
 if [ "$INCLUDE_DOCKER" = "yes" ]; then
-    PACKAGES="$PACKAGES docker luci-app-dockerman luci-i18n-dockerman-zh-cn"
-    echo "✅ include_docker=yes，已添加 Docker 相关组件"
+    # 添加你要求的 Docker (带中文)
+    PACKAGES="$PACKAGES luci-app-docker"
+    echo "✅ include_docker=yes，已添加 Docker 组件"
 else
     echo "ℹ️ include_docker=no，跳过 Docker 相关组件"
 fi
