@@ -100,7 +100,8 @@ jobs:
           echo "EFFECTIVE_ENABLE_PPPOE=$effective_enable_pppoe" >> "$GITHUB_ENV"
           echo "EFFECTIVE_PPPOE_ACCOUNT=$pppoe_account" >> "$GITHUB_ENV"
           echo "EFFECTIVE_PPPOE_PASSWORD=$pppoe_password" >> "$GITHUB_ENV"
-      
+
+      - name: Check Docker Option
         run: |
           if [[ "${{ inputs.include_docker }}" == "yes" ]]; then
              echo "✅ include_docker=yes，将在 build24.sh 中注入 Docker 组件"
