@@ -207,12 +207,6 @@ jobs:
             echo -e "\n- 🐳 **Docker**: 未集成" >> ${{ github.workspace }}/router-info.md
           fi
 
-          if [ "${{ inputs.include_passwall }}" == "yes" ]; then
-            echo -e "- ✈️ **Passwall**: 已集成" >> ${{ github.workspace }}/router-info.md
-          else
-            echo -e "- ✈️ **Passwall**: 未集成" >> ${{ github.workspace }}/router-info.md
-          fi
-
       - name: Upload ImmortWrt as release assets
         uses: softprops/action-gh-release@v2.2.1
         with:
