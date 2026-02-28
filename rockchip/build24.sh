@@ -2,8 +2,6 @@
 # Log file for debugging
 source shell/custom-packages.sh
 source shell/switch_repository.sh
-# 固定第三方插件（按需求仅保留以下插件）
-BASE_CUSTOM_PACKAGES="luci-app-adguardhome luci-i18n-adguardhome-zh-cn luci-app-turboacc luci-i18n-turboacc-zh-cn luci-app-aria2 luci-i18n-aria2-zh-cn luci-app-openlist luci-i18n-openlist-zh-cn"
 # 保留 shell/custom-packages.sh 中的预设，并与基础插件合并
 CUSTOM_PACKAGES="$BASE_CUSTOM_PACKAGES $CUSTOM_PACKAGES"
 echo "第三方软件包: $CUSTOM_PACKAGES"
