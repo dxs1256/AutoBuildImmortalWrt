@@ -84,8 +84,9 @@ jobs:
       - name: Check Docker
         run: |
           if [[ "${{ inputs.include_docker }}" == "yes" ]]; then
-             echo 'CUSTOM_PACKAGES="$CUSTOM_PACKAGES docker"' >> shell/custom-packages.sh
-             echo "✅ 已为Rockchip平台补充 docker 组件"
+             echo "✅ include_docker=yes，将在 build24.sh 中注入 Docker 组件"
+          else
+             echo "ℹ️ include_docker=no，将跳过 Docker 组件"
           fi
       
       - name: Building Rockchip ImmortalWrt 24.10.x
