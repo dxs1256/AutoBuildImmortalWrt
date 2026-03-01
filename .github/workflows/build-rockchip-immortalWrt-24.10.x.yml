@@ -1,6 +1,9 @@
 name: build-rockchip-nanopi-r4s
 
 on:
+  # 新增定时任务：每天 UTC 时间 12:00（即北京时间晚上 20:00）执行
+  schedule:
+    - cron: '0 12 * * *'
   workflow_dispatch:
     inputs:
       luci_version:
@@ -68,10 +71,11 @@ jobs:
       - name: Resolve LUCI Version
         id: resolve_version
         run: |
-          INPUT_VERSION="${{ inputs.luci_version }}"
+          # 增加 || 'latest' 防止定时任务输入为空
+          INPUT_VERSION="${{ inputs.luci_version || 'latest' }}"
           
           if [[ "$INPUT_VERSION" == "latest" ]]; then
-            echo "🔄 用户选择了 latest，正在从 Docker Hub 获取最新 24.10.x 版本号..."
+            echo "🔄 用户或定时任务选择了 latest，正在从 Docker Hub 获取最新 24.10.x 版本号..."
             
             # 使用更稳定的 API 查询方式，匹配包含平台信息的完整 tag
             LATEST_VER=$(curl -sL "https://hub.docker.com/v2/repositories/immortalwrt/imagebuilder/tags/?page_size=100" | \
@@ -91,7 +95,7 @@ jobs:
             # 将真实版本号存入环境变量
             echo "RESOLVED_VERSION=$LATEST_VER" >> $GITHUB_ENV
           else
-            echo "📌 用户手动指定了版本: $INPUT_VERSION"
+            echo "📌 指定了版本: $INPUT_VERSION"
             echo "RESOLVED_VERSION=$INPUT_VERSION" >> $GITHUB_ENV
           fi
       # ================================================================
@@ -99,17 +103,17 @@ jobs:
       - name: Save Custom Router IP into OpenWrt files
         run: |
           mkdir -p "${{ github.workspace }}/custom"
-          echo "${{ inputs.custom_router_ip }}" > "${{ github.workspace }}/custom/custom_router_ip.txt"
-          echo "您设置的Rockchip软路由管理地址是:${{ inputs.custom_router_ip }}"
+          echo "${{ inputs.custom_router_ip || '192.168.1.1' }}" > "${{ github.workspace }}/custom/custom_router_ip.txt"
+          echo "您设置的Rockchip软路由管理地址是:${{ inputs.custom_router_ip || '192.168.1.1' }}"
       
       - name: Normalize PPPoE Inputs
         run: |
-          effective_enable_pppoe="${{ inputs.enable_pppoe }}"
-          pppoe_account="${{ inputs.pppoe_account }}"
-          pppoe_password="${{ inputs.pppoe_password }}"
+          effective_enable_pppoe="${{ inputs.enable_pppoe || 'yes' }}"
+          pppoe_account="${{ inputs.pppoe_account || '071900263467' }}"
+          pppoe_password="${{ inputs.pppoe_password || '123456' }}"
 
           if [[ "$effective_enable_pppoe" == "no" ]]; then
-            echo "ℹ️ 用户选择了不启用 PPPoE(no)，已自动清空丢弃账号和密码"
+            echo "ℹ️ 选择不启用 PPPoE(no)，已自动清空丢弃账号和密码"
             pppoe_account=""
             pppoe_password=""
           elif [[ "$effective_enable_pppoe" == "yes" ]]; then
@@ -129,19 +133,19 @@ jobs:
 
       - name: Check Options
         run: |
-          if [[ "${{ inputs.include_docker }}" == "yes" ]]; then
+          if [[ "${{ inputs.include_docker || 'yes' }}" == "yes" ]]; then
              echo "✅ include_docker=yes，将在 build24.sh 中注入 Docker 组件"
           fi
-          if [[ "${{ inputs.include_passwall }}" == "yes" ]]; then
+          if [[ "${{ inputs.include_passwall || 'no' }}" == "yes" ]]; then
              echo "✅ include_passwall=yes，将在 build24.sh 中注入 Passwall 组件"
           fi
       
       - name: Building Rockchip ImmortalWrt
         run: |
-          profile="${{ inputs.profile }}"
-          include_docker="${{ inputs.include_docker }}"
-          include_passwall="${{ inputs.include_passwall }}"
-          rootfs_partsize="${{ inputs.rootfs_partsize }}"
+          profile="${{ inputs.profile || 'friendlyarm_nanopi-r4s' }}"
+          include_docker="${{ inputs.include_docker || 'yes' }}"
+          include_passwall="${{ inputs.include_passwall || 'no' }}"
+          rootfs_partsize="${{ inputs.rootfs_partsize || '3072' }}"
           
           # ⚠️ 注意这里：使用了我们上面刚刚解析出来的真实版本号 env.RESOLVED_VERSION
           echo "Building for profile: $profile with version: ${{ env.RESOLVED_VERSION }}"
@@ -167,7 +171,7 @@ jobs:
       - name: Generate package report
         run: |
           TARGET_DIR="${{ github.workspace }}/bin/targets/rockchip/armv8"
-          PROFILE="${{ inputs.profile }}"
+          PROFILE="${{ inputs.profile || 'friendlyarm_nanopi-r4s' }}"
           MANIFEST_FILE=$(ls "$TARGET_DIR"/*"$PROFILE"*.manifest 2>/dev/null | head -n1)
           if [ -z "$MANIFEST_FILE" ]; then
             MANIFEST_FILE=$(ls "$TARGET_DIR"/*.manifest 2>/dev/null | head -n1)
@@ -200,15 +204,15 @@ jobs:
           cat > ${{ github.workspace }}/router-info.md <<EOF
           ## 📡 路由器后台信息
 
-          - ✳️ **路由型号**: ${{ inputs.profile }}
-          - 🏠 **后台地址**: ${{ inputs.custom_router_ip }}
+          - ✳️ **路由型号**: ${{ inputs.profile || 'friendlyarm_nanopi-r4s' }}
+          - 🏠 **后台地址**: ${{ inputs.custom_router_ip || '192.168.1.1' }}
           - 👤 **用户名**: root
           - 🔑 **密码**: 无
           - 🧩 **固件版本**: ${{ env.RESOLVED_VERSION }}
           - 🧠 **内核版本**: ${KERNEL_VERSION}
           EOF
 
-          if [ "${{ inputs.include_docker }}" == "yes" ]; then
+          if [ "${{ inputs.include_docker || 'yes' }}" == "yes" ]; then
             echo -e "\n- 🐳 **Docker**: 已集成" >> ${{ github.workspace }}/router-info.md
           else
             echo -e "\n- 🐳 **Docker**: 未集成" >> ${{ github.workspace }}/router-info.md
